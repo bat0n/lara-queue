@@ -50,6 +50,9 @@ def test_push_to_laravel():
 
 def test_listen_for_jobs():
     """Test 2: Listen for jobs from Laravel."""
+    import pytest
+    pytest.skip("Manual test - requires Laravel to send jobs. Run manually with: python -m tests.test_manual")
+
     print("\n" + "="*60)
     print("TEST 2: Прослушивание Python очереди")
     print("="*60)

@@ -47,54 +47,55 @@ class TestQueueIntegration:
     def test_job_payload_deserialization(self, real_redis, sample_job_name, sample_job_data):
         """Test that pushed job can be deserialized correctly."""
         queue = Queue(real_redis, queue='deserialize_test')
-        
+
         # Push job
         queue.push(sample_job_name, sample_job_data)
-        
+
         # Get job from Redis
         queue_key = 'laravel_database_queues:deserialize_test'
         job_data = real_redis.lpop(queue_key)
         job_payload = json.loads(job_data)
-        
+
         # Deserialize PHP command
         command = job_payload['data']['command']
         deserialized = phpserialize.loads(
             command.encode('utf-8'),
             object_hook=phpserialize.phpobject
         )
-        
-        # Verify deserialized data
+
+        # Verify deserialized data (phpserialize returns byte keys and values)
         data_dict = deserialized._asdict()
-        assert data_dict['a'] == sample_job_data['a']
-        assert data_dict['b'] == sample_job_data['b']
-        assert data_dict['c'] == sample_job_data['c']
+        assert data_dict[b'a'] == sample_job_data['a'].encode('utf-8')
+        assert data_dict[b'b'] == sample_job_data['b'].encode('utf-8')
+        assert data_dict[b'c'] == sample_job_data['c'].encode('utf-8')
     
     def test_pop_from_queue(self, real_redis, sample_job_name, sample_job_data):
         """Test popping job from queue with handler."""
         queue = Queue(real_redis, queue='pop_test')
-        
+
         # Push job first
         queue.push(sample_job_name, sample_job_data)
-        
+
         # Set up handler to capture data
         received_data = []
-        
+
         @queue.handler
         def capture_handler(data):
             received_data.append(data)
             # Stop listening after first job
             raise KeyboardInterrupt()
-        
+
         # Pop job (will stop after first job due to KeyboardInterrupt)
         try:
             queue.listen()
         except KeyboardInterrupt:
             pass
-        
+
         # Verify handler received the job
         assert len(received_data) == 1
         assert received_data[0]['name'] == sample_job_name
-        assert received_data[0]['data']['a'] == sample_job_data['a']
+        # phpserialize returns byte keys and values
+        assert received_data[0]['data'][b'a'] == sample_job_data['a'].encode('utf-8')
     
     def test_queue_with_custom_config(self, real_redis):
         """Test queue with custom appname and prefix."""
